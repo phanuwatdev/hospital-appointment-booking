@@ -1,0 +1,263 @@
+### =============================================================================
+### Appointment Booking Module — API requests
+###
+### เปิดไฟล์นี้ใน VS Code (ต้องมี extension "REST Client" ของ humao)
+### หรือใน IntelliJ / WebStorm ได้เลย แล้วกด "Send Request" เหนือแต่ละคำขอ
+###
+### ก่อนเริ่ม:
+###   1. pnpm setup     (docker compose up + migrate + seed)
+###   2. pnpm dev
+###   3. ตั้งค่า @date ด้านล่างเป็น "วันจันทร์ถัดไป" ให้ตรงกับข้อมูล seed
+###      ดูวันที่ได้จาก GET /api/health ด้านล่าง (คืนค่า nextMonday มาให้)
+###
+### UUID ทั้งหมดตรงกับ db/seed.sql จึงใช้ได้ทันทีโดยไม่ต้อง query หา id
+### =============================================================================
+
+@baseUrl  = http://localhost:3001
+@staffId  = 44444444-4444-4444-4444-444444444401
+@date     = 2026-09-07
+
+@drAnan     = 22222222-2222-2222-2222-222222222201
+@drPiyada   = 22222222-2222-2222-2222-222222222202
+@drThanawat = 22222222-2222-2222-2222-222222222203
+@drManatnan = 22222222-2222-2222-2222-222222222204
+
+@ptWichai   = 33333333-3333-3333-3333-333333333301
+@ptNattapon = 33333333-3333-3333-3333-333333333303
+
+
+### ─────────────────────────────────────────────────────────────────────────────
+### 01 — Setup
+### ─────────────────────────────────────────────────────────────────────────────
+
+### ตรวจสถานะระบบ (คืนค่า nextMonday มาให้ใช้ตั้ง @date ด้านบน)
+GET {{baseUrl}}/api/health
+
+### รายชื่อแผนก
+GET {{baseUrl}}/api/departments
+
+### รายชื่อแพทย์
+GET {{baseUrl}}/api/doctors
+
+### ประเภทการนัดและระยะเวลาของแต่ละประเภท
+GET {{baseUrl}}/api/appointment-types
+
+### ตารางเวรของ นพ.อนันต์ (จ–ศ 09:00–16:00 พักเที่ยง 12:00–13:00)
+GET {{baseUrl}}/api/doctors/{{drAnan}}/schedules
+
+
+### ─────────────────────────────────────────────────────────────────────────────
+### 02 — Happy path: หา slot แล้วจอง
+### ─────────────────────────────────────────────────────────────────────────────
+
+### หา slot ว่างสำหรับนัดติดตามอาการ 15 นาที
+### คาดหวัง: ไม่มี 09:00–09:45 (จองแล้ว), ไม่มี 10:30–11:45 (หัตถการ+buffer),
+###          ไม่มี 12:00–13:00 (พักเที่ยง), ไม่มีเลย 15:45 (จะล้นเวลาเลิกงาน)
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+
+### หา slot สำหรับหัตถการ 60 นาที (+buffer 15) — จะเหลือน้อยกว่ามาก
+### คาดหวัง: ไม่มี 11:00 เพราะจะกินเข้าไปในเวลาพักเที่ยง
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=PROCEDURE
+
+### จองนัด → 201 Created
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+Idempotency-Key: 11111111-aaaa-4bbb-8ccc-000000000001
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T14:00:00+07:00",
+  "reason": "ติดตามผลตรวจเลือด"
+}
+
+### ยืนยันว่า slot 14:00 หายไปจากรายการแล้ว
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+
+### ดูรายการนัดของแพทย์ในวันนั้น
+GET {{baseUrl}}/api/appointments?doctorId={{drAnan}}&date={{date}}
+
+
+### ─────────────────────────────────────────────────────────────────────────────
+### 03 — Invalid booking (โจทย์ข้อ 5) — ทุกคำขอด้านล่างต้องถูกปฏิเสธ
+### ─────────────────────────────────────────────────────────────────────────────
+
+### ❌ นอกเวลาทำการ (07:00 แต่แพทย์เริ่ม 09:00) → 400 OUTSIDE_WORKING_HOURS
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T07:00:00+07:00"
+}
+
+### ❌ ตรงกับเวลาพักกลางวัน (12:15) → 400 DURING_BREAK
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T12:15:00+07:00"
+}
+
+### ❌ หัตถการ 60 นาที เริ่ม 11:30 จะคร่อมเข้าเวลาพัก → 400 DURING_BREAK
+### เคสนี้แยกจากเคสบน: จุดเริ่มอยู่ในเวลาทำการปกติ แต่ปลายทางล้ำเข้าเวลาพัก
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "PROCEDURE",
+  "startsAt": "{{date}}T11:30:00+07:00"
+}
+
+### ❌ ซ้อนกับนัดที่มีอยู่แล้ว (09:00) → 409 SLOT_TAKEN
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T09:00:00+07:00"
+}
+
+### ❌ ซ้อนกับช่วง buffer ของหัตถการ (11:35 อยู่ในช่วงล้างห้อง) → 409 SLOT_TAKEN
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T11:35:00+07:00"
+}
+
+### ❌ จองย้อนหลังในอดีต → 400 IN_THE_PAST
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "2020-01-06T10:00:00+07:00"
+}
+
+### ❌ จองในวันที่แพทย์เปิดตรวจแต่ไม่รับนัดล่วงหน้า
+### (พญ.มนัสนันท์ ออกตรวจวันเสาร์แบบ walk-in อย่างเดียว)
+### → 400 SCHEDULE_NOT_BOOKABLE
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drManatnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T10:00:00+07:00"
+}
+
+### ❌ จองในวันที่แพทย์ลา (วันพุธ = @date + 2) → 400 DOCTOR_ON_LEAVE
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "2026-09-09T10:00:00+07:00"
+}
+
+### ❌ คนไข้คนเดิมมีนัดกับแพทย์อีกคนในเวลาซ้อนกัน → 409 PATIENT_DOUBLE_BOOKED
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptWichai}}",
+  "doctorId": "{{drThanawat}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{date}}T09:05:00+07:00"
+}
+
+### ❌ จองไกลเกิน 90 วัน → 400 TOO_FAR_IN_ADVANCE
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "2027-12-01T10:00:00+07:00"
+}
+
+
+### ─────────────────────────────────────────────────────────────────────────────
+### 04 — Cancellation (โจทย์ข้อ 7)
+### ─────────────────────────────────────────────────────────────────────────────
+
+### ยกเลิกนัด — ต้องระบุเหตุผลเสมอ (บังคับที่ระดับ DB ด้วย CHECK constraint)
+### แทนที่ :id ด้วย id ที่ได้จากการจองในหัวข้อ 02
+POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "reason": "ผู้ป่วยติดภารกิจ ขอเลื่อนนัด"
+}
+
+### ยืนยันว่า slot กลับมาว่างแล้ว (14:00 ควรกลับมาอยู่ในรายการ)
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+
+### ❌ ยกเลิกซ้ำอีกครั้ง → 409 INVALID_STATUS_TRANSITION
+POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "reason": "ยกเลิกซ้ำ"
+}
+
+### ❌ ยกเลิกโดยไม่ระบุเหตุผล → 400 VALIDATION_ERROR
+POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{}
+
+
+### ─────────────────────────────────────────────────────────────────────────────
+### 05 — Idempotency: กันการกดปุ่มรัว / client retry
+### ─────────────────────────────────────────────────────────────────────────────
+
+### ยิงคำขอนี้สองครั้งติดกัน ด้วย Idempotency-Key เดียวกัน
+### ครั้งแรก → 201 สร้างใหม่
+### ครั้งที่สอง → 200 คืน appointment เดิม ไม่สร้างซ้ำ ไม่ใช่ 409
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+Idempotency-Key: 99999999-dddd-4eee-8fff-000000000042
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drPiyada}}",
+  "typeCode": "CONSULTATION",
+  "startsAt": "{{date}}T15:00:00+07:00",
+  "reason": "ทดสอบ idempotency"
+}

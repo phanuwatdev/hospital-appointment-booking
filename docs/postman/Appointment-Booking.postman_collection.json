@@ -1,0 +1,799 @@
+{
+  "info": {
+    "name": "Appointment Booking Module",
+    "description": "Take-home test — Hospital Information System.\n\nกด Run collection ได้เลย ทุกคำขอมี test assertion ในตัว\nโฟลเดอร์ 03 ตรงกับกฎการป้องกันการจองผิดในโจทย์ข้อ 5 ทีละข้อ\n\nวันที่ของนัดคำนวณอัตโนมัติเป็น 'วันจันทร์ถัดไป' ให้ตรงกับ db/seed.sql\nจึงไม่ต้องแก้วันที่เองไม่ว่าจะรันวันไหน",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// คำนวณวันจันทร์ถัดไป ให้ตรงกับข้อมูลใน db/seed.sql",
+          "const d = new Date();",
+          "const shift = ((8 - (d.getDay() === 0 ? 7 : d.getDay())) % 7) || 7;",
+          "d.setDate(d.getDate() + shift);",
+          "const pad = n => String(n).padStart(2, '0');",
+          "const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;",
+          "pm.collectionVariables.set('date', iso);",
+          "",
+          "// วันพุธ = วันที่แพทย์ D001 ลาพักร้อนตาม seed",
+          "const w = new Date(d); w.setDate(w.getDate() + 2);",
+          "pm.collectionVariables.set('leaveDate', `${w.getFullYear()}-${pad(w.getMonth() + 1)}-${pad(w.getDate())}`);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "staffId", "value": "44444444-4444-4444-4444-444444444401" },
+    { "key": "drAnan", "value": "22222222-2222-2222-2222-222222222201" },
+    { "key": "drPiyada", "value": "22222222-2222-2222-2222-222222222202" },
+    { "key": "drThanawat", "value": "22222222-2222-2222-2222-222222222203" },
+    { "key": "drManatnan", "value": "22222222-2222-2222-2222-222222222204" },
+    { "key": "ptWichai", "value": "33333333-3333-3333-3333-333333333301" },
+    { "key": "ptNattapon", "value": "33333333-3333-3333-3333-333333333303" },
+    { "key": "date", "value": "" },
+    { "key": "leaveDate", "value": "" },
+    { "key": "appointmentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 — Setup",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ระบบพร้อมใช้งานและต่อฐานข้อมูลได้', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายชื่อแผนก",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/departments", "host": ["{{baseUrl}}"], "path": ["api", "departments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('คืนรายชื่อแผนกจาก seed', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายชื่อแพทย์",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/doctors", "host": ["{{baseUrl}}"], "path": ["api", "doctors"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('มีแพทย์ในระบบ', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ประเภทการนัด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/appointment-types", "host": ["{{baseUrl}}"], "path": ["api", "appointment-types"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('มีครบทั้ง 4 ประเภทตามโจทย์', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const codes = pm.response.json().data.map(t => t.code);",
+                  "  ['NEW_PATIENT','FOLLOW_UP','CONSULTATION','PROCEDURE']",
+                  "    .forEach(c => pm.expect(codes).to.include(c));",
+                  "});",
+                  "",
+                  "pm.test('หัตถการมี buffer หลังจบการตรวจ', () => {",
+                  "  const proc = pm.response.json().data.find(t => t.code === 'PROCEDURE');",
+                  "  pm.expect(proc.bufferAfterMin).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ตารางเวรของ นพ.อนันต์",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{drAnan}}/schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{drAnan}}", "schedules"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ตารางเวรมีข้อมูลเวลาพักแนบมาด้วย', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const s = pm.response.json().data;",
+                  "  pm.expect(s).to.be.an('array').that.is.not.empty;",
+                  "  pm.expect(s[0]).to.have.property('breaks');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Happy path",
+      "item": [
+        {
+          "name": "หา slot ว่าง (FOLLOW_UP 15 นาที)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{drAnan}}", "availability"],
+              "query": [
+                { "key": "date", "value": "{{date}}" },
+                { "key": "typeCode", "value": "FOLLOW_UP" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const slots = pm.response.json().data.slots.map(s => s.startsAt.slice(11, 16));",
+                  "",
+                  "pm.test('มี slot ว่างให้เลือก', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(slots).to.not.be.empty;",
+                  "});",
+                  "",
+                  "pm.test('ไม่แสดง slot ที่ถูกจองไปแล้ว (09:00)', () => {",
+                  "  pm.expect(slots).to.not.include('09:00');",
+                  "});",
+                  "",
+                  "pm.test('ไม่แสดง slot ในเวลาพักกลางวัน (12:00–13:00)', () => {",
+                  "  ['12:00','12:15','12:30','12:45'].forEach(t =>",
+                  "    pm.expect(slots).to.not.include(t));",
+                  "});",
+                  "",
+                  "pm.test('ไม่แสดง slot ที่ทับช่วง buffer ของหัตถการ (11:30, 11:35)', () => {",
+                  "  pm.expect(slots).to.not.include('11:30');",
+                  "});",
+                  "",
+                  "pm.test('ไม่แสดง slot ที่จะล้นเวลาเลิกงาน (15:45 + 15 นาที = 16:00 พอดี จึงต้องมี)', () => {",
+                  "  pm.expect(slots).to.include('15:45');",
+                  "  pm.expect(slots).to.not.include('16:00');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "หา slot ว่าง (PROCEDURE 60 นาที + buffer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=PROCEDURE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{drAnan}}", "availability"],
+              "query": [
+                { "key": "date", "value": "{{date}}" },
+                { "key": "typeCode", "value": "PROCEDURE" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const slots = pm.response.json().data.slots.map(s => s.startsAt.slice(11, 16));",
+                  "",
+                  "pm.test('นัดยาวมี slot น้อยกว่านัดสั้น', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('ไม่เสนอ 11:30 เพราะจะคร่อมเข้าเวลาพักเที่ยง', () => {",
+                  "  pm.expect(slots).to.not.include('11:30');",
+                  "  pm.expect(slots).to.not.include('11:45');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "จองนัด → 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T14:00:00+07:00\",\n  \"reason\": \"ติดตามผลตรวจเลือด\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('จองสำเร็จ', () => pm.response.to.have.status(201));",
+                  "",
+                  "const a = pm.response.json().data;",
+                  "pm.collectionVariables.set('appointmentId', a.id);",
+                  "",
+                  "pm.test('ระบบคำนวณเวลาสิ้นสุดให้เองจากประเภทนัด', () => {",
+                  "  const mins = (new Date(a.endsAt) - new Date(a.startsAt)) / 60000;",
+                  "  pm.expect(mins).to.eql(15);",
+                  "});",
+                  "",
+                  "pm.test('สถานะเริ่มต้นเป็น booked และมีเลขที่ใบนัด', () => {",
+                  "  pm.expect(a.status).to.eql('booked');",
+                  "  pm.expect(a.appointmentNo).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "slot ที่จองไปหายจากรายการแล้ว",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{drAnan}}", "availability"],
+              "query": [
+                { "key": "date", "value": "{{date}}" },
+                { "key": "typeCode", "value": "FOLLOW_UP" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('14:00 ไม่อยู่ในรายการ slot ว่างแล้ว', () => {",
+                  "  const slots = pm.response.json().data.slots.map(s => s.startsAt.slice(11, 16));",
+                  "  pm.expect(slots).to.not.include('14:00');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Invalid booking (โจทย์ข้อ 5)",
+      "item": [
+        {
+          "name": "นอกเวลาทำการ → OUTSIDE_WORKING_HOURS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T07:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ถูกปฏิเสธด้วยรหัส OUTSIDE_WORKING_HOURS', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('OUTSIDE_WORKING_HOURS');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ตรงเวลาพัก → DURING_BREAK",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T12:15:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ถูกปฏิเสธด้วยรหัส DURING_BREAK', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('DURING_BREAK');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "นัดยาวคร่อมเวลาพัก → DURING_BREAK",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"PROCEDURE\",\n  \"startsAt\": \"{{date}}T11:30:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// เคสนี้ต่างจากเคสบน: จุดเริ่มอยู่ในเวลาทำการ แต่ปลายทางล้ำเข้าเวลาพัก",
+                  "pm.test('ตรวจทั้งช่วงเวลา ไม่ใช่แค่จุดเริ่ม', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.be.oneOf(['DURING_BREAK','OUTSIDE_WORKING_HOURS']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ซ้อนนัดเดิม → SLOT_TAKEN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T09:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ถูกปฏิเสธด้วย 409 SLOT_TAKEN', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('SLOT_TAKEN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ซ้อนช่วง buffer ของหัตถการ → SLOT_TAKEN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T11:35:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('buffer หลังหัตถการถูกกันไว้จริง', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('SLOT_TAKEN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "จองย้อนหลัง → IN_THE_PAST",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"2020-01-06T10:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ถูกปฏิเสธด้วยรหัส IN_THE_PAST', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('IN_THE_PAST');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เวรที่ไม่เปิดรับนัด → SCHEDULE_NOT_BOOKABLE",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drManatnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T10:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// พญ.มนัสนันท์ ออกตรวจวันเสาร์แบบ walk-in อย่างเดียว (accepts_booking = false)",
+                  "pm.test('เวรที่ไม่รับนัดล่วงหน้าถูกกันไว้', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('SCHEDULE_NOT_BOOKABLE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "วันที่แพทย์ลา → DOCTOR_ON_LEAVE",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{leaveDate}}T10:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ไม่ให้จองในวันที่แพทย์ลา', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('DOCTOR_ON_LEAVE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "คนไข้จองซ้อนตัวเอง → PATIENT_DOUBLE_BOOKED",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptWichai}}\",\n  \"doctorId\": \"{{drThanawat}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T09:05:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// คนไข้คนเดียวกันอยู่สองที่พร้อมกันไม่ได้ แม้จะเป็นคนละแพทย์คนละแผนก",
+                  "pm.test('กันคนไข้จองซ้อนเวลาตัวเอง', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('PATIENT_DOUBLE_BOOKED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Cancellation (โจทย์ข้อ 7)",
+      "item": [
+        {
+          "name": "ยกเลิกนัด",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"ผู้ป่วยติดภารกิจ ขอเลื่อนนัด\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{appointmentId}}", "cancel"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ยกเลิกสำเร็จ', () => pm.response.to.have.status(200));",
+                  "",
+                  "const a = pm.response.json().data;",
+                  "pm.test('บันทึกเหตุผล ผู้ยกเลิก และเวลาครบถ้วน', () => {",
+                  "  pm.expect(a.status).to.eql('cancelled');",
+                  "  pm.expect(a.cancellationReason).to.be.a('string').that.is.not.empty;",
+                  "  pm.expect(a.cancelledBy).to.not.be.null;",
+                  "  pm.expect(a.cancelledAt).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "slot กลับมาว่างอีกครั้ง",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{drAnan}}", "availability"],
+              "query": [
+                { "key": "date", "value": "{{date}}" },
+                { "key": "typeCode", "value": "FOLLOW_UP" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('14:00 กลับมาจองได้แล้วหลังยกเลิก', () => {",
+                  "  const slots = pm.response.json().data.slots.map(s => s.startsAt.slice(11, 16));",
+                  "  pm.expect(slots).to.include('14:00');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ยกเลิกซ้ำ → INVALID_STATUS_TRANSITION",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"ยกเลิกซ้ำ\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{appointmentId}}", "cancel"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('state machine กันการเปลี่ยนสถานะที่ไม่ถูกต้อง', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('INVALID_STATUS_TRANSITION');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ยกเลิกโดยไม่ระบุเหตุผล → VALIDATION_ERROR",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{appointmentId}}", "cancel"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('บังคับให้ระบุเหตุผลการยกเลิก', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — Idempotency",
+      "item": [
+        {
+          "name": "จองครั้งแรกด้วย Idempotency-Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" },
+              { "key": "Idempotency-Key", "value": "99999999-dddd-4eee-8fff-000000000042" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drPiyada}}\",\n  \"typeCode\": \"CONSULTATION\",\n  \"startsAt\": \"{{date}}T15:00:00+07:00\",\n  \"reason\": \"ทดสอบ idempotency\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('สร้างนัดใหม่สำเร็จ', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idemAppointmentId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ยิงซ้ำด้วย key เดิม → ต้องได้ใบเดิม ไม่สร้างซ้ำ",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" },
+              { "key": "Idempotency-Key", "value": "99999999-dddd-4eee-8fff-000000000042" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drPiyada}}\",\n  \"typeCode\": \"CONSULTATION\",\n  \"startsAt\": \"{{date}}T15:00:00+07:00\",\n  \"reason\": \"ทดสอบ idempotency\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('คืน 200 ไม่ใช่ 409 (retry ต้องปลอดภัย)', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('เป็นนัดใบเดิม ไม่ได้สร้างใหม่', () => {",
+                  "  pm.expect(pm.response.json().data.id)",
+                  "    .to.eql(pm.collectionVariables.get('idemAppointmentId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
