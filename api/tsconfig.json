@@ -14,6 +14,10 @@
     "types": ["node", "jest"],
     "sourceMap": true,
     "outDir": "./dist",
+    // TS6 บังคับให้ระบุ rootDir ชัดเจน แทนที่จะเดาจากไฟล์ที่ include
+    // ตั้งเป็น "." เพื่อคลุม jest.config.ts และ test/ ด้วย
+    // (tsconfig.build.json override เป็น ./src อยู่แล้ว ผลลัพธ์ของ nest build จึงไม่เปลี่ยน)
+    "rootDir": ".",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
