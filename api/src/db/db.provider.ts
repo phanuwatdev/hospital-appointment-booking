@@ -1,13 +1,14 @@
 import type { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import * as schema from './schema';
 
 export const DRIZZLE = Symbol('DRIZZLE_CLIENT');
 
-export type DrizzleDb = PostgresJsDatabase<typeof schema>;
+// รวม $client ไว้ในชนิดด้วย เพื่อให้ปิด connection pool ตอน onModuleDestroy ได้ (ดู db.module.ts)
+export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
 export const dbProvider: Provider = {
   provide: DRIZZLE,

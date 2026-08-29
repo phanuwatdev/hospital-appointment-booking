@@ -4,10 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DbModule } from './db/db.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule, HealthModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule, HealthModule, AvailabilityModule],
   controllers: [AppController],
   providers: [AppService],
 })
