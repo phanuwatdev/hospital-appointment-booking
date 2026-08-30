@@ -6,14 +6,12 @@
 
 import { sql } from 'drizzle-orm';
 import {
-  bigserial,
   boolean,
   check,
   customType,
   date,
   index,
   integer,
-  jsonb,
   pgTable,
   smallint,
   text,
@@ -324,23 +322,4 @@ export const appointments = pgTable(
     // นี่คือกลไกกันจองซ้อนหลักของระบบ ประกาศไว้ใน migration SQL เท่านั้น
     // (drizzle-orm ยังไม่มี API สำหรับ EXCLUDE constraint)
   ],
-);
-
-// =============================================================================
-// Audit log
-// =============================================================================
-
-export const auditLogs = pgTable(
-  'audit_logs',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    entity: text('entity').notNull(),
-    entityId: uuid('entity_id').notNull(),
-    action: text('action').notNull(),
-    actorId: uuid('actor_id').references(() => staffUsers.id),
-    beforeData: jsonb('before_data'),
-    afterData: jsonb('after_data'),
-    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index('idx_audit_entity').on(t.entity, t.entityId, t.occurredAt.desc())],
 );

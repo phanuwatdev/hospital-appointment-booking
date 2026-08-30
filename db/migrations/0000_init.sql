@@ -306,24 +306,6 @@ CREATE INDEX idx_appt_active     ON appointments (starts_at) WHERE status = 'boo
 CREATE INDEX idx_appt_no         ON appointments (appointment_no);
 
 -- =============================================================================
--- Audit log
--- ข้อมูลผู้ป่วยอยู่ภายใต้ PDPA และมาตรฐานคุณภาพโรงพยาบาล
--- ทุกการเปลี่ยนแปลงต้องตรวจสอบย้อนหลังได้ว่าใครทำ เมื่อไหร่ ค่าก่อน/หลังคืออะไร
--- =============================================================================
-CREATE TABLE audit_logs (
-  id          bigserial PRIMARY KEY,
-  entity      text NOT NULL,
-  entity_id   uuid NOT NULL,
-  action      text NOT NULL,
-  actor_id    uuid REFERENCES staff_users(id),
-  before_data jsonb,
-  after_data  jsonb,
-  occurred_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_audit_entity ON audit_logs (entity, entity_id, occurred_at DESC);
-
--- =============================================================================
 -- Trigger: อัปเดต updated_at และเดิน version อัตโนมัติ
 -- ทำให้ optimistic locking ฝั่ง application ใช้ได้โดยไม่ต้องจำเอง:
 --   UPDATE appointments SET ... WHERE id = $1 AND version = $2

@@ -17,7 +17,7 @@
 
 BEGIN;
 
-TRUNCATE audit_logs, appointments, schedule_exceptions, schedule_breaks,
+TRUNCATE appointments, schedule_exceptions, schedule_breaks,
          doctor_schedules, appointment_types, patients, doctors,
          departments, staff_users
   RESTART IDENTITY CASCADE;

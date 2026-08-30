@@ -144,14 +144,3 @@ WHERE NOT EXISTS (                                    -- ไม่ทับเ�
       )
   AND c.starts_at > now() + interval '30 min'         -- lead time
 ORDER BY 1;
-
-
--- -----------------------------------------------------------------------------
--- 7. Audit trail ของนัดใบหนึ่ง
--- -----------------------------------------------------------------------------
-SELECT l.occurred_at, l.action, u.full_name AS actor, l.before_data, l.after_data
-FROM audit_logs l
-LEFT JOIN staff_users u ON u.id = l.actor_id
-WHERE l.entity = 'appointment'
-ORDER BY l.occurred_at DESC
-LIMIT 50;
