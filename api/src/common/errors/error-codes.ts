@@ -15,6 +15,8 @@ export const ERROR_CODES = [
   'LEAD_TIME_VIOLATION',
   'INVALID_STATUS_TRANSITION',
   'VALIDATION_ERROR',
+  'NOT_FOUND',
+  'CONCURRENT_MODIFICATION',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

@@ -4,33 +4,67 @@
 ### เปิดไฟล์นี้ใน VS Code (ต้องมี extension "REST Client" ของ humao)
 ### หรือใน IntelliJ / WebStorm ได้เลย แล้วกด "Send Request" เหนือแต่ละคำขอ
 ###
-### ก่อนเริ่ม:
-###   1. pnpm setup     (docker compose up + migrate + seed)
-###   2. pnpm dev
-###   3. ตั้งค่า @date ด้านล่างเป็น "วันจันทร์ถัดไป" ให้ตรงกับข้อมูล seed
-###      ดูวันที่ได้จาก GET /api/health ด้านล่าง (คืนค่า nextMonday มาให้)
+### ก่อนเริ่ม (สำคัญ):
+###   1. npm run db:reset      ← ล้างข้อมูลใน DB เคสด้านล่างพึ่งข้อมูล seed
+###   2. npm run api:dev
+###   3. ยิง GET /api/health แล้วเอาค่า nextMonday ที่ได้ มาใส่ @monday ด้านล่าง
+###      แล้วปรับ @wednesday / @saturday / @tuesday ตามตารางในหมายเหตุ
+###
+### ⚠️ ถ้าจองนัดจากหัวข้อ 02 ไปแล้ว เคสในหัวข้อ 03 บางข้ออาจให้ผลต่างไป
+###    ถ้าผลไม่ตรง ให้รัน npm run db:reset แล้วเริ่มใหม่จากบนลงล่าง
 ###
 ### UUID ทั้งหมดตรงกับ db/seed.sql จึงใช้ได้ทันทีโดยไม่ต้อง query หา id
 ### =============================================================================
 
 @baseUrl  = http://localhost:3001
 @staffId  = 44444444-4444-4444-4444-444444444401
-@date     = 2026-09-07
 
+### วันที่ — ปรับให้ตรงกับผลจาก GET /api/health
+### แล้วปรับอีกสามตัวตามลำดับวัน (@tuesday +1, @wednesday +2, @saturday +5) ตามปฏิทิน
+@monday    = 2026-08-31
+@tuesday   = 2026-09-01
+@wednesday = 2026-09-02
+@saturday  = 2026-09-05
+
+### แพทย์
 @drAnan     = 22222222-2222-2222-2222-222222222201
 @drPiyada   = 22222222-2222-2222-2222-222222222202
 @drThanawat = 22222222-2222-2222-2222-222222222203
 @drManatnan = 22222222-2222-2222-2222-222222222204
+@drSuphachai = 22222222-2222-2222-2222-222222222205
 
+### คนไข้
 @ptWichai   = 33333333-3333-3333-3333-333333333301
+@ptSunee    = 33333333-3333-3333-3333-333333333302
 @ptNattapon = 33333333-3333-3333-3333-333333333303
+@ptPakorn   = 33333333-3333-3333-3333-333333333304
+@ptAree     = 33333333-3333-3333-3333-333333333305
+
+### -----------------------------------------------------------------------------
+### หมายเหตุ: ตารางเวรและนัดที่มีอยู่ตาม db/seed.sql
+###
+### แพทย์            วันออกตรวจ         เวลา            พัก
+### นพ.อนันต์        จ–ศ               09:00–16:00     12:00–13:00   (ลาวันพุธ)
+### พญ.ปิยะดา        จ พ ศ             13:00–20:00     16:00–16:30
+### นพ.ธนวัฒน์       อ พฤ              08:00–12:00     ไม่มี
+### พญ.มนัสนันท์     จ–ศ               09:00–17:00     12:00–13:00
+###                  เสาร์              09:00–12:00     ← ไม่รับนัดล่วงหน้า
+### นพ.ศุภชัย        จ–ศ               10:00–15:00     12:00–12:30
+###
+### นัดที่มีอยู่แล้ว (วันจันทร์):
+###   วิชัย    09:00–09:15  นพ.อนันต์
+###   สุนีย์    09:15–09:45  นพ.อนันต์
+###   อารีย์   10:30–11:30  นพ.อนันต์  (หัตถการ บล็อกถึง 11:45 เพราะ buffer 15 นาที)
+###   ณัฐพล   10:00–10:30  นพ.ศุภชัย
+###   ปกรณ์    14:00–14:15  พญ.มนัสนันท์ (ยกเลิกแล้ว → slot ว่าง)
+### -----------------------------------------------------------------------------
 
 
 ### ─────────────────────────────────────────────────────────────────────────────
 ### 01 — Setup
 ### ─────────────────────────────────────────────────────────────────────────────
 
-### ตรวจสถานะระบบ (คืนค่า nextMonday มาให้ใช้ตั้ง @date ด้านบน)
+### ตรวจสถานะระบบ (คืนค่า nextMonday มาให้ใช้ตั้งตัวแปรด้านบน)
 GET {{baseUrl}}/api/health
 
 ### รายชื่อแผนก
@@ -42,7 +76,7 @@ GET {{baseUrl}}/api/doctors
 ### ประเภทการนัดและระยะเวลาของแต่ละประเภท
 GET {{baseUrl}}/api/appointment-types
 
-### ตารางเวรของ นพ.อนันต์ (จ–ศ 09:00–16:00 พักเที่ยง 12:00–13:00)
+### ตารางเวรของ นพ.อนันต์
 GET {{baseUrl}}/api/doctors/{{drAnan}}/schedules
 
 
@@ -51,15 +85,25 @@ GET {{baseUrl}}/api/doctors/{{drAnan}}/schedules
 ### ─────────────────────────────────────────────────────────────────────────────
 
 ### หา slot ว่างสำหรับนัดติดตามอาการ 15 นาที
-### คาดหวัง: ไม่มี 09:00–09:45 (จองแล้ว), ไม่มี 10:30–11:45 (หัตถการ+buffer),
-###          ไม่มี 12:00–13:00 (พักเที่ยง), มี 15:45 เป็น slot สุดท้าย
-GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+###
+### คาดหวัง 16 slots:
+###   ไม่มี 09:00 09:15 09:30  (จองแล้ว)
+###   มี    09:45              (ช่องว่างพอดี 15 นาที ก่อนถึง 10:00)
+###   มี    10:00 10:15
+###   ไม่มี 10:30 – 11:30      (หัตถการ)
+###   ไม่มี 11:30              (ทับ buffer ที่ยืดถึง 11:45)
+###   มี    11:45              (buffer จบพอดี)
+###   ไม่มี 12:00 – 12:45      (พักเที่ยง)
+###   มี    13:00 – 15:45
+###   ไม่มี 16:00              (15:45 + 15 = 16:00 พอดีเวลาเลิกงาน จึงเป็น slot สุดท้าย)
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{monday}}&typeCode=FOLLOW_UP
 
-### หา slot สำหรับหัตถการ 60 นาที (+buffer 15) — จะเหลือน้อยกว่ามาก
-### คาดหวัง: ไม่มี 11:00 เพราะจะกินเข้าไปในเวลาพักเที่ยง
-GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=PROCEDURE
+### หา slot สำหรับหัตถการ 60 นาที + buffer 15 → ต้องหาช่องว่าง 75 นาทีติดกัน
+### คาดหวัง: ไม่มี 11:00 11:15 11:30 11:45 เพราะจะกินเข้าไปในพักเที่ยง
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{monday}}&typeCode=PROCEDURE
 
 ### จองนัด → 201 Created
+# @name bookAppointment
 POST {{baseUrl}}/api/appointments
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
@@ -69,83 +113,29 @@ Idempotency-Key: 11111111-aaaa-4bbb-8ccc-000000000001
   "patientId": "{{ptNattapon}}",
   "doctorId": "{{drAnan}}",
   "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T14:00:00+07:00",
+  "startsAt": "{{monday}}T14:00:00+07:00",
   "reason": "ติดตามผลตรวจเลือด"
 }
 
 ### ยืนยันว่า slot 14:00 หายไปจากรายการแล้ว
-GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{monday}}&typeCode=FOLLOW_UP
 
 ### ดูรายการนัดของแพทย์ในวันนั้น
-GET {{baseUrl}}/api/appointments?doctorId={{drAnan}}&date={{date}}
+GET {{baseUrl}}/api/appointments?doctorId={{drAnan}}&date={{monday}}
 
 
 ### ─────────────────────────────────────────────────────────────────────────────
 ### 03 — Invalid booking (โจทย์ข้อ 5) — ทุกคำขอด้านล่างต้องถูกปฏิเสธ
+###
+### ลำดับการตรวจ: กฎเรื่องเวลาที่ไม่ต้องแตะ DB มาก่อนเสมอ
+###   IN_THE_PAST → LEAD_TIME_VIOLATION → TOO_FAR_IN_ADVANCE
+###   → OUTSIDE_WORKING_HOURS / SCHEDULE_NOT_BOOKABLE → DOCTOR_ON_LEAVE
+###   → DURING_BREAK → INSERT (ให้ exclusion constraint ตัดสิน)
 ### ─────────────────────────────────────────────────────────────────────────────
 
-### ❌ นอกเวลาทำการ (07:00 แต่แพทย์เริ่ม 09:00) → 400 OUTSIDE_WORKING_HOURS
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T07:00:00+07:00"
-}
-
-### ❌ ตรงกับเวลาพักกลางวัน (12:15) → 400 DURING_BREAK
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T12:15:00+07:00"
-}
-
-### ❌ หัตถการ 60 นาที เริ่ม 11:30 จะคร่อมเข้าเวลาพัก → 400 DURING_BREAK
-### เคสนี้แยกจากเคสบน: จุดเริ่มอยู่ในเวลาทำการปกติ แต่ปลายทางล้ำเข้าเวลาพัก
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "PROCEDURE",
-  "startsAt": "{{date}}T11:30:00+07:00"
-}
-
-### ❌ ซ้อนกับนัดที่มีอยู่แล้ว (09:00) → 409 SLOT_TAKEN
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T09:00:00+07:00"
-}
-
-### ❌ ซ้อนกับช่วง buffer ของหัตถการ (11:35 อยู่ในช่วงล้างห้อง) → 409 SLOT_TAKEN
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T11:35:00+07:00"
-}
-
 ### ❌ จองย้อนหลังในอดีต → 400 IN_THE_PAST
+### ต้องได้ IN_THE_PAST ไม่ใช่ OUTSIDE_WORKING_HOURS
+### (แม้ปี 2020 จะอยู่นอกช่วง valid_from ของตารางเวรก็ตาม — กฎเรื่องเวลาต้องมาก่อน)
 POST {{baseUrl}}/api/appointments
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
@@ -155,44 +145,6 @@ X-Staff-Id: {{staffId}}
   "doctorId": "{{drAnan}}",
   "typeCode": "FOLLOW_UP",
   "startsAt": "2020-01-06T10:00:00+07:00"
-}
-
-### ❌ จองในวันที่แพทย์เปิดตรวจแต่ไม่รับนัดล่วงหน้า
-### (พญ.มนัสนันท์ ออกตรวจวันเสาร์แบบ walk-in อย่างเดียว)
-### → 400 SCHEDULE_NOT_BOOKABLE
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drManatnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T10:00:00+07:00"
-}
-
-### ❌ จองในวันที่แพทย์ลา (วันพุธ = @date + 2) → 400 DOCTOR_ON_LEAVE
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptNattapon}}",
-  "doctorId": "{{drAnan}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "2026-09-09T10:00:00+07:00"
-}
-
-### ❌ คนไข้คนเดิมมีนัดกับแพทย์อีกคนในเวลาซ้อนกัน → 409 PATIENT_DOUBLE_BOOKED
-POST {{baseUrl}}/api/appointments
-Content-Type: application/json
-X-Staff-Id: {{staffId}}
-
-{
-  "patientId": "{{ptWichai}}",
-  "doctorId": "{{drThanawat}}",
-  "typeCode": "FOLLOW_UP",
-  "startsAt": "{{date}}T09:05:00+07:00"
 }
 
 ### ❌ จองไกลเกิน 90 วัน → 400 TOO_FAR_IN_ADVANCE
@@ -207,14 +159,129 @@ X-Staff-Id: {{staffId}}
   "startsAt": "2027-12-01T10:00:00+07:00"
 }
 
+### ❌ นอกเวลาทำการ (07:00 แต่แพทย์เริ่ม 09:00) → 400 OUTSIDE_WORKING_HOURS
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
 
-### ─────────────────────────────────────────────────────────────────────────────
-### 04 — Cancellation (โจทย์ข้อ 7)
-### ─────────────────────────────────────────────────────────────────────────────
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T07:00:00+07:00"
+}
 
-### ยกเลิกนัด — ต้องระบุเหตุผลเสมอ (บังคับที่ระดับ DB ด้วย CHECK constraint)
-### แทนที่ :id ด้วย id ที่ได้จากการจองในหัวข้อ 02
-POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+### ❌ วันที่แพทย์ไม่ออกตรวจ (นพ.ธนวัฒน์ ออกตรวจแค่ อังคาร/พฤหัส) → 400 OUTSIDE_WORKING_HOURS
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drThanawat}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T09:00:00+07:00"
+}
+
+### ❌ วันเสาร์ที่ พญ.มนัสนันท์ ออกตรวจแบบ walk-in ไม่รับนัดล่วงหน้า
+### → 400 SCHEDULE_NOT_BOOKABLE
+### (ต่างจากเคสบน: มีตารางเวรจริง แต่ accepts_booking = false)
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drManatnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{saturday}}T10:00:00+07:00"
+}
+
+### ❌ วันพุธที่ นพ.อนันต์ ลาพักร้อน → 400 DOCTOR_ON_LEAVE
+### (มีตารางเวรวันพุธปกติ แต่มี schedule_exceptions แบบ DAY_OFF)
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{wednesday}}T10:00:00+07:00"
+}
+
+### ❌ ตรงกับเวลาพักกลางวัน (12:15) → 400 DURING_BREAK
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T12:15:00+07:00"
+}
+
+### ❌ หัตถการ 60 นาที เริ่ม 11:30 จะคร่อมเข้าเวลาพัก → 400 DURING_BREAK
+### เคสนี้แยกจากเคสบน: จุดเริ่มอยู่ในเวลาทำการปกติ แต่ปลายทางล้ำเข้าเวลาพัก
+### พิสูจน์ว่าระบบตรวจทั้งช่วง [start, start+duration+buffer) ไม่ใช่แค่จุดเริ่ม
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "PROCEDURE",
+  "startsAt": "{{monday}}T11:30:00+07:00"
+}
+
+### ❌ ซ้อนกับนัดที่มีอยู่แล้ว (วิชัย จองไว้ 09:00) → 409 SLOT_TAKEN
+### 409 นี้มาจาก exclusion constraint ใน Postgres (SQLSTATE 23P01) ไม่ใช่จากการ SELECT เช็คก่อน
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T09:00:00+07:00"
+}
+
+### ❌ ซ้อนกับช่วง buffer ของหัตถการ (11:35 อยู่ในช่วงล้างห้อง) → 409 SLOT_TAKEN
+### พิสูจน์ว่า occupied_range ใน DB รวม buffer ไว้จริง
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T11:35:00+07:00"
+}
+
+### ❌ คนไข้คนเดิมมีนัดกับแพทย์อีกคนในเวลาซ้อนกัน → 409 PATIENT_DOUBLE_BOOKED
+### ณัฐพล มีนัด 10:00–10:30 กับ นพ.ศุภชัย อยู่แล้ว
+### จองกับ นพ.อนันต์ ที่ 10:15 จะทับกันเอง แม้ นพ.อนันต์ จะว่างก็ตาม
+POST {{baseUrl}}/api/appointments
+Content-Type: application/json
+X-Staff-Id: {{staffId}}
+
+{
+  "patientId": "{{ptNattapon}}",
+  "doctorId": "{{drAnan}}",
+  "typeCode": "FOLLOW_UP",
+  "startsAt": "{{monday}}T10:15:00+07:00"
+}
+
+### ดูรายละเอียดนัดก่อนยกเลิก
+GET {{baseUrl}}/api/appointments/{{bookAppointment.response.body.data.id}}
+
+### ยกเลิกนัด → 200
+### ต้องระบุเหตุผลเสมอ (บังคับที่ระดับ DB ด้วย CHECK constraint appt_cancellation_complete)
+POST {{baseUrl}}/api/appointments/{{bookAppointment.response.body.data.id}}/cancel
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
 
@@ -222,11 +289,12 @@ X-Staff-Id: {{staffId}}
   "reason": "ผู้ป่วยติดภารกิจ ขอเลื่อนนัด"
 }
 
-### ยืนยันว่า slot กลับมาว่างแล้ว (14:00 ควรกลับมาอยู่ในรายการ)
-GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{date}}&typeCode=FOLLOW_UP
+### ยืนยันว่า slot 14:00 กลับมาว่างแล้ว
+### พิสูจน์ว่า WHERE clause ของ exclusion constraint ปล่อย slot คืนอัตโนมัติ
+GET {{baseUrl}}/api/doctors/{{drAnan}}/availability?date={{monday}}&typeCode=FOLLOW_UP
 
 ### ❌ ยกเลิกซ้ำอีกครั้ง → 409 INVALID_STATUS_TRANSITION
-POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+POST {{baseUrl}}/api/appointments/{{bookAppointment.response.body.data.id}}/cancel
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
 
@@ -235,7 +303,7 @@ X-Staff-Id: {{staffId}}
 }
 
 ### ❌ ยกเลิกโดยไม่ระบุเหตุผล → 400 VALIDATION_ERROR
-POST {{baseUrl}}/api/appointments/PASTE_APPOINTMENT_ID_HERE/cancel
+POST {{baseUrl}}/api/appointments/{{bookAppointment.response.body.data.id}}/cancel
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
 
@@ -246,9 +314,12 @@ X-Staff-Id: {{staffId}}
 ### 05 — Idempotency: กันการกดปุ่มรัว / client retry
 ### ─────────────────────────────────────────────────────────────────────────────
 
-### ยิงคำขอนี้สองครั้งติดกัน ด้วย Idempotency-Key เดียวกัน
-### ครั้งแรก → 201 สร้างใหม่
-### ครั้งที่สอง → 200 คืน appointment เดิม ไม่สร้างซ้ำ ไม่ใช่ 409
+### ยิงคำขอนี้ **สองครั้งติดกัน** ด้วย Idempotency-Key เดียวกัน
+###   ครั้งแรก   → 201 สร้างใหม่
+###   ครั้งที่สอง → 200 คืนใบเดิม (id เท่ากัน) ไม่ใช่ 409
+###
+### เหตุผล: ถ้า client ยิงแล้ว network timeout แล้ว retry
+### ระบบต้องไม่สร้างนัดซ้ำ และต้องไม่ตอบ error ทั้งที่คำขอสำเร็จไปแล้ว
 POST {{baseUrl}}/api/appointments
 Content-Type: application/json
 X-Staff-Id: {{staffId}}
@@ -258,6 +329,6 @@ Idempotency-Key: 99999999-dddd-4eee-8fff-000000000042
   "patientId": "{{ptNattapon}}",
   "doctorId": "{{drPiyada}}",
   "typeCode": "CONSULTATION",
-  "startsAt": "{{date}}T15:00:00+07:00",
+  "startsAt": "{{monday}}T15:00:00+07:00",
   "reason": "ทดสอบ idempotency"
 }

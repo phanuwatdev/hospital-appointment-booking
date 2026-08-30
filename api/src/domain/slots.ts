@@ -43,6 +43,16 @@ function contains(outer: Span, inner: Span): boolean {
   return inner.start >= outer.start && inner.end <= outer.end;
 }
 
+/** เวอร์ชัน Interval ของ overlaps() — ให้ไฟล์อื่น (เช่น booking-rules.ts) เรียกใช้ซ้ำได้โดยไม่ต้องเขียนตรรกะทับกันใหม่ */
+export function intervalsOverlap(a: Interval, b: Interval): boolean {
+  return overlaps(toSpan(a), toSpan(b));
+}
+
+/** เวอร์ชัน Interval ของ contains() */
+export function intervalContains(outer: Interval, inner: Interval): boolean {
+  return contains(toSpan(outer), toSpan(inner));
+}
+
 /**
  * หักช่วง cuts ออกจาก base คืนส่วนที่เหลือเรียงตามเวลา
  *

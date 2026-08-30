@@ -28,3 +28,8 @@ export function toBangkokInstant(isoDate: string, localTime: string): Date {
 export function formatBangkokIso(instant: Date): string {
   return formatInTimeZone(instant, HOSPITAL_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
 }
+
+/** วันที่ปฏิทินท้องถิ่น Asia/Bangkok ของ instant นั้น เช่น "2026-09-07" */
+export function bangkokDateOf(instant: Date): string {
+  return formatInTimeZone(instant, HOSPITAL_TIMEZONE, 'yyyy-MM-dd');
+}
