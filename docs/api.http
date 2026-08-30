@@ -79,6 +79,9 @@ GET {{baseUrl}}/api/appointment-types
 ### ตารางเวรของ นพ.อนันต์
 GET {{baseUrl}}/api/doctors/{{drAnan}}/schedules
 
+### รายชื่อคนไข้
+GET {{baseUrl}}/api/patients
+
 
 ### ─────────────────────────────────────────────────────────────────────────────
 ### 02 — Happy path: หา slot แล้วจอง
