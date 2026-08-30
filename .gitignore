@@ -50,3 +50,8 @@ coverage/
 
 # local tooling
 CLAUDE.md
+
+# local binaries
+tools/
+
+web/AGENTS.md

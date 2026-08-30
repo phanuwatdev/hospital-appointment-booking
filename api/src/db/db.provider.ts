@@ -19,7 +19,10 @@ export const dbProvider: Provider = {
       throw new Error('DATABASE_URL is not set');
     }
 
-    const client = postgres(databaseUrl);
+    // statement_timeout กันไม่ให้ request ค้างรอ lock ที่ exclusion constraint นานเกินไป
+    // เช่นตอนมีหลาย transaction แย่งกัน insert ทับเวลาเดียวกันพร้อมกันจำนวนมาก
+    // ผู้ใช้ระบบจองนัดไม่ควรต้องรอเกิน 5 วินาที ถ้าเกินให้ปล่อยเป็น error แทนที่จะค้าง
+    const client = postgres(databaseUrl, { connection: { statement_timeout: 5000 } });
     return drizzle(client, { schema });
   },
 };
