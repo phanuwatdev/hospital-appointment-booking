@@ -151,9 +151,9 @@ Error codes ทั้งหมดอยู่ที่ `api/src/common/errors/er
 
 ## Web UI
 
-![หน้าจองนัด](docs/screenshots/booking.png)
+![หน้าจองนัด](docs/screenshots/booking.jpg)
 
-![เมนูการจองนัด](docs/screenshots/booking2.png)
+![เมนูการจองนัด](docs/screenshots/booking2.jpg)
 
 หน้าเว็บมีหน้าเดียวที่ `http://localhost:3000`
 ฝั่งซ้ายเลือกแพทย์ วันที่ ประเภทนัด แล้วคลิก slot เพื่อจอง
