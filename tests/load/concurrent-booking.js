@@ -5,8 +5,26 @@
 // วิธีรัน:
 //   1. npm run db:reset          ← ต้องรันทุกครั้งก่อนเทสต์ ไม่งั้น slot เป้าหมายอาจไม่ว่าง
 //   2. npm run api:dev
-//   3. k6 run --env BASE_URL=http://localhost:3001 tests/load/concurrent-booking.js
-//
+//   3. k6 run --env BASE_URL=http://localhost:3001 tests/load/concurrent-booking.js or
+//      .\tools\k6.exe run --env BASE_URL=http://localhost:3001 tests\load\concurrent-booking.js
+
+//   ***ถ้ายิงแล้ว Status 500 ให้เช็ค psql ว่ามีเทอมินัลไหนค้างอยู่มั้ย
+
+//  1 เปิด psql ผ่าน Terminal
+//  - npm run db:psql
+
+//  2 หา Process ที่ค้าง
+//  SELECT pid, state, query, now() - xact_start AS duration
+//  FROM pg_stat_activity
+//  WHERE datname = 'booking' AND state != 'idle'
+//  ORDER BY xact_start;
+
+//  3 Kill Process
+//  - SELECT pg_terminate_backend(pid ที่เจอ);
+
+//  4 ออกจาก psql
+//  - \q
+
 // k6 เป็น binary แยก ไม่ได้อยู่ใน package.json ของโปรเจกต์นี้ ต้องติดตั้งเองจาก
 // https://k6.io/docs/get-started/installation/
 //

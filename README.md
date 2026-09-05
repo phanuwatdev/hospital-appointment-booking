@@ -15,8 +15,10 @@
 
 ## เริ่มต้นใช้งาน (Quick start)
 
-ต้องมี Docker
-ต้องมี Node ตามเวอร์ชันที่ระบุในไฟล์ `.nvmrc`
+- ต้องมี Docker ติดตั้งแล้วและ**เปิดโปรแกรมไว้**
+- Node.js ตามเวอร์ชันในไฟล์ `.nvmrc` (ปัจจุบันคือ 24+)
+  - ถ้าใช้ nvm: macOS/Linux พิมพ์ `nvm use` ได้เลย, Windows (nvm-windows) ต้องพิมพ์ `nvm use 24`
+  - ถ้าไม่ได้ใช้ nvm ตรวจเวอร์ชันด้วย `node --version`
 
 ```bash
 git clone <this-repo>
@@ -26,6 +28,12 @@ nvm use            # อ่านเวอร์ชัน Node จาก .nvmrc
 npm run setup      # ติดตั้ง dependencies ของ api/ และ web/ แล้วเปิด Postgres ใน Docker
 npm run api:dev    # เปิด API (NestJS) ที่ http://localhost:3001
 npm run web:dev    # เปิดอีกเทอร์มินัลหนึ่ง เว็บ (Next.js) จะรันที่ http://localhost:3000
+
+## หาเกิดปัญหา port 3001 ค้าง
+## Window 10 ให้เปิด Terminal ขึ้นมา(Run as Admin)
+## net stop winnat
+## net start winnat
+## ปิด Terminal แล้วเปิดลองใหม่
 ```
 
 เปิดเบราว์เซอร์ไปที่ http://localhost:3000
@@ -184,7 +192,8 @@ Error codes ทั้งหมดอยู่ที่ `api/src/common/errors/er
 
 npm run db:reset
 npm run api:dev
-k6 run --env BASE_URL=http://localhost:3001 tests/load/concurrent-booking.js
+k6 run --env BASE_URL=http://localhost:3001 tests/load/concurrent-booking.js or
+.\tools\k6.exe run --env BASE_URL=http://localhost:3001 tests\load\concurrent-booking.js
 
 ยิง 50 request พร้อมกันไปที่ slot เดียวกัน ผลที่ได้
 
@@ -192,7 +201,7 @@ booking_created................: 1
 booking_rejected_conflict......: 49
 booking_unexpected.............: 0
 checks_succeeded...............: 100.00%
-http_req_duration..............: avg=460ms max=492ms
+http_req_duration..............: avg=250ms max=274ms
 
 threshold ในสคริปต์บังคับไว้ว่าต้องสำเร็จ 1 และถูกปฏิเสธ 49 เท่านั้น
 ถ้าไม่ตรง k6 จะ exit ด้วย code ไม่เป็นศูนย์

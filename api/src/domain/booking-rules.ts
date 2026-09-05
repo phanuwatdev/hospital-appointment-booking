@@ -35,6 +35,16 @@ export interface TimingRulesInput {
  * ตรวจกฎเรื่องเวลาล้วนๆ — ไม่พึ่งตารางเวรของแพทย์เลย จึงตรวจได้ก่อน query DB ใดๆ เพิ่มเติม
  * คืน error code ตัวแรกที่เจอ (IN_THE_PAST → LEAD_TIME_VIOLATION → TOO_FAR_IN_ADVANCE) หรือ null ถ้าผ่าน
  */
+
+// checkTimingRules()
+// ─────────────────
+// รับแค่: เวลาที่จอง, เวลาปัจจุบัน
+// ไม่ต้องมีตารางเวรเลย
+
+// เช็ค:
+// - IN_THE_PAST
+// - LEAD_TIME_VIOLATION
+// - TOO_FAR_IN_ADVANCE
 export function checkTimingRules(input: TimingRulesInput): TimingRuleErrorCode | null {
   const { startsAt, now, minLeadTimeMin, maxAdvanceDays } = input;
 
@@ -71,6 +81,16 @@ export interface WorkingHoursRulesInput {
  * ตรวจว่า block (รวม buffer) อยู่ในเวลาทำการหรือไม่ และไม่ทับเวลาพัก
  * เรียกได้ก็ต่อเมื่อ service ยืนยันแล้วว่ามีตารางเวรวันนั้นจริง (ไม่ใช่ OUTSIDE_WORKING_HOURS แบบไม่มีตารางเวรเลย)
  */
+
+
+// checkWorkingHoursRules()
+// ──────────────────────
+// รับ: เวลาที่จอง + ตารางเวรที่ query มาแล้ว
+// ต้องมีตารางเวรก่อนถึงจะเช็คได้
+
+// เช็ค:
+// - OUTSIDE_WORKING_HOURS
+// - DURING_BREAK
 export function checkWorkingHoursRules(input: WorkingHoursRulesInput): WorkingHoursRuleErrorCode | null {
   const { startsAt, durationMin, bufferMin, workStart, workEnd, breaks } = input;
 

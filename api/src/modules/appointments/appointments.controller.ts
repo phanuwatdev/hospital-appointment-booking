@@ -22,7 +22,7 @@ export class AppointmentsController {
   @Post()
   async createAppointment(
     @Body(new ZodValidationPipe(createAppointmentBodySchema)) body: CreateAppointmentBody,
-    // @Headers ในเวอร์ชันนี้ไม่รองรับ pipe เป็นอาร์กิวเมนต์ที่สอง (ต่างจาก @Param/@Query)
+    // @Headers ในเวอร์ชันนี้ไม่รองรับ pipe เป็นอาร์กิวเมนต์ที่สอง (ต่างจาก @Param/@Query) EX @Headers('X-Staff-Id', new ZodValidationPipe(schema))
     // จึงรับค่าดิบมาก่อน แล้วเรียก ZodValidationPipe.transform() เองด้านล่าง
     @Headers('X-Staff-Id') rawStaffId: string | undefined,
     @Headers('Idempotency-Key') rawIdempotencyKey: string | undefined,

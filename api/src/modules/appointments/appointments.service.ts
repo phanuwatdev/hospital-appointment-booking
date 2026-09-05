@@ -42,7 +42,9 @@ export interface CreateAppointmentInput {
   /** จาก header Idempotency-Key (ถ้ามี) */
   idempotencyKey?: string;
 }
-
+// occupied_range แค่ duration
+// clinical_range เวลาใข้จริง คือ duration + buffer
+// blocks_until	starts_at + duration_min + buffer_after_min
 export interface AppointmentDto {
   id: string;
   appointmentNo: string;

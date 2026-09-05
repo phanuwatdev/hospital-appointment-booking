@@ -20,7 +20,11 @@
           "",
           "// วันพุธ = วันที่แพทย์ D001 ลาพักร้อนตาม seed",
           "const w = new Date(d); w.setDate(w.getDate() + 2);",
-          "pm.collectionVariables.set('leaveDate', `${w.getFullYear()}-${pad(w.getMonth() + 1)}-${pad(w.getDate())}`);"
+          "pm.collectionVariables.set('leaveDate', `${w.getFullYear()}-${pad(w.getMonth() + 1)}-${pad(w.getDate())}`);",
+          "",
+          "// วันเสาร์ = เวร walk-in ของ D004 ที่ accepts_booking = false ตาม seed",
+          "const sat = new Date(d); sat.setDate(sat.getDate() + 5);",
+          "pm.collectionVariables.set('saturday', `${sat.getFullYear()}-${pad(sat.getMonth() + 1)}-${pad(sat.getDate())}`);"
         ]
       }
     }
@@ -36,6 +40,7 @@
     { "key": "ptNattapon", "value": "33333333-3333-3333-3333-333333333303" },
     { "key": "date", "value": "" },
     { "key": "leaveDate", "value": "" },
+    { "key": "saturday", "value": "" },
     { "key": "appointmentId", "value": "" }
   ],
   "item": [
@@ -505,6 +510,35 @@
           ]
         },
         {
+          "name": "จองไกลเกิน 90 วัน → TOO_FAR_IN_ADVANCE",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Staff-Id", "value": "{{staffId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"2027-12-01T10:00:00+07:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ถูกปฏิเสธด้วยรหัส TOO_FAR_IN_ADVANCE', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('TOO_FAR_IN_ADVANCE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "เวรที่ไม่เปิดรับนัด → SCHEDULE_NOT_BOOKABLE",
           "request": {
             "method": "POST",
@@ -514,7 +548,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drManatnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T10:00:00+07:00\"\n}"
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drManatnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{saturday}}T10:00:00+07:00\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
           },
@@ -573,7 +607,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{ptWichai}}\",\n  \"doctorId\": \"{{drThanawat}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T09:05:00+07:00\"\n}"
+              "raw": "{\n  \"patientId\": \"{{ptNattapon}}\",\n  \"doctorId\": \"{{drAnan}}\",\n  \"typeCode\": \"FOLLOW_UP\",\n  \"startsAt\": \"{{date}}T10:15:00+07:00\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/appointments", "host": ["{{baseUrl}}"], "path": ["api", "appointments"] }
           },
